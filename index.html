@@ -2,18 +2,25 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Cadastro e Lista de Usuários com Botão</title>
+    <title>Cadastro e Lista de Usuários em Tempo Real - Firebase</title>
     <style>
-        /* Estilo básico para a tabela */
+        /* Estilos básicos */
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input[type="text"], input[type="email"] { width: 300px; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; }
+        button { padding: 10px 15px; background-color: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 4px; margin-right: 10px; }
+        button:hover { background-color: #45a049; }
+        hr { margin: 30px 0; border: 0; border-top: 1px solid #eee; }
+
+        /* Estilos para a Tabela */
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
         th { background-color: #f2f2f2; }
-        /* A lista de usuários estará oculta inicialmente */
+
+        /* O container da lista estará oculto inicialmente */
         #listaUsuariosContainer {
             margin-top: 30px;
-            border-top: 1px solid #ccc;
             padding-top: 15px;
-            display: none; /* ESCONDE A DIV INICIALMENTE */
+            display: none; 
         }
     </style>
 </head>
@@ -42,10 +49,11 @@
     </div>
 
     <script type="module">
+        // 1. IMPORTAÇÕES NECESSÁRIAS
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
 
-        // CONFIGURAÇÃO DO SEU PROJETO
+        // 2. CONFIGURAÇÃO DO SEU PROJETO FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
             authDomain: "supermercado2-2170d.firebaseapp.com",
@@ -59,12 +67,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         
-        // Variável para garantir que o ouvinte só seja ativado uma vez
-        let isListenerActive = false;
+        let isListenerActive = false; // Controla se o ouvinte já foi ativado
 
-        // --------------------------------------------------------
-        // FUNÇÃO PARA SALVAR (Inalterada)
-        // --------------------------------------------------------
+        // 3. FUNÇÃO PARA SALVAR NO FIRESTORE
         window.salvar = async function() {
             const nome = document.getElementById("nome").value.trim();
             const email = document.getElementById("email").value.trim();
@@ -81,9 +86,10 @@
             };
 
             try {
+                // Adiciona o novo documento à coleção "usuarios"
                 await addDoc(collection(db, "usuarios"), dadosUsuario);
                 
-                alert(`Usuário ${nome} cadastrado com sucesso!`);
+                alert(`SUCESSO! Usuário ${nome} cadastrado.`);
                 document.getElementById("cadastroForm").reset();
 
             } catch (error) {
@@ -94,37 +100,39 @@
             return false;
         }
 
-        // --------------------------------------------------------
-        // FUNÇÃO ATIVADA PELO NOVO BOTÃO
-        // --------------------------------------------------------
+        // 4. FUNÇÃO ATIVADA PELO BOTÃO 'Ver Usuários'
         window.mostrarLista = function() {
-            // Torna o container da lista visível
+            // 1. Torna o container da lista visível
             document.getElementById('listaUsuariosContainer').style.display = 'block';
 
-            // Ativa o ouvinte do Firestore apenas na primeira vez
+            // 2. Ativa o ouvinte do Firestore apenas na primeira vez
             if (!isListenerActive) {
                 carregarUsuariosEmTempoReal();
                 isListenerActive = true;
             }
         }
         
-        // --------------------------------------------------------
-        // FUNÇÃO DE LEITURA EM TEMPO REAL (onSnapshot)
-        // --------------------------------------------------------
+        // 5. FUNÇÃO DE LEITURA EM TEMPO REAL (onSnapshot)
         function carregarUsuariosEmTempoReal() {
             const listaDiv = document.getElementById('listaUsuarios');
             const colecaoRef = collection(db, "usuarios");
             
-            // Ordena os usuários pelo mais recente
+            // Query: Seleciona todos os documentos e ordena pelo mais recente
             const q = query(colecaoRef, orderBy("data_cadastro", "desc"));
 
+            // onSnapshot: Cria o ouvinte em tempo real
             onSnapshot(q, (querySnapshot) => {
                 let htmlTabela = '<table><thead><tr><th>Nome</th><th>Email</th><th>Data de Cadastro</th></tr></thead><tbody>';
                 
+                if (querySnapshot.empty) {
+                     listaDiv.innerHTML = '<p>Nenhum usuário cadastrado ainda.</p>';
+                     return;
+                }
+
                 querySnapshot.forEach((doc) => {
                     const usuario = doc.data();
                     
-                    // Formata a data de cadastro
+                    // Converte o Timestamp do Firebase para um formato legível
                     const data = usuario.data_cadastro ? 
                                  new Date(usuario.data_cadastro.toDate()).toLocaleString('pt-BR') : 
                                  'Aguardando...';
@@ -140,10 +148,11 @@
 
                 htmlTabela += '</tbody></table>';
                 
-                // Atualiza o conteúdo da div com a nova tabela
+                // Atualiza o HTML da lista
                 listaDiv.innerHTML = htmlTabela;
 
             }, (error) => {
+                // Trata erro (provavelmente Regras de Segurança)
                 console.error("Erro ao receber atualização em tempo real: ", error);
                 listaDiv.innerHTML = '<p style="color: red;">Erro ao carregar lista. Verifique as Regras de Segurança do Firestore.</p>';
             });
