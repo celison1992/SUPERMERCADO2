@@ -1,73 +1,74 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Cadastro de Usuário no Firebase</title>
+    <meta charset="UTF-8">
+    <title>Cadastro de Usuário no Firebase</title>
 </head>
 <body>
-    <h2>Cadastro de Usuário</h2>
-    
-    <form id="cadastroForm" onsubmit="return salvar()">
-        <label for="nome">Nome:</label><br>
-        <input type="text" id="nome" name="nome" required><br><br>
+    <h2>Cadastro de Usuário</h2>
+    
+    <form id="cadastroForm" onsubmit="return salvar()">
+        <label for="nome">Nome:</label><br>
+        <input type="text" id="nome" name="nome" required><br><br>
 
-        <label for="email">Email:</label><br>
-        <input type="email" id="email" name="email" required><br><br>
+        <label for="email">Email:</label><br>
+        <input type="email" id="email" name="email" required><br><br>
 
-        <button type="submit">Salvar</button>
-    </form>
+        <button type="submit">Salvar</button>
+    </form>
 
-    <script type="module">
-        // Importa as funções necessárias para Inicialização, Firestore e timestamp
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
-        import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
+    <script type="module">
+        // 1. IMPORTAÇÕES - Firebase v9 (Módulos)
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
 
-        // 2. CONFIGURAÇÃO DO SEU PROJETO 'supermercado2-2170d'
-        const firebaseConfig = {
-            apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
-            authDomain: "supermercado2-2170d.firebaseapp.com",
-            projectId: "supermercado2-2170d",
-            storageBucket: "supermercado2-2170d.firebasestorage.app",
-            messagingSenderId: "309197163875",
-            appId: "1:309197163875:web:ca8f836c3a69bc710d1756",
-            measurementId: "G-F9K74XEXR1"
-        };
+        // 2. CONFIGURAÇÃO DO SEU PROJETO 'supermercado2-2170d'
+        // NOTA: Mantenha esta configuração privada em um projeto de produção real!
+        const firebaseConfig = {
+            apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
+            authDomain: "supermercado2-2170d.firebaseapp.com",
+            projectId: "supermercado2-2170d",
+            storageBucket: "supermercado2-2170d.firebasestorage.app",
+            messagingSenderId: "309197163875",
+            appId: "1:309197163875:web:ca8f836c3a69bc710d1756",
+            measurementId: "G-F9K74XEXR1"
+        };
 
-        // Inicializa o Firebase e a referência ao banco de dados
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        // Inicializa o Firebase e a referência ao banco de dados
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-        // 3. FUNÇÃO JAVASCRIPT PARA SALVAR NO FIRESTORE
-        // O uso de 'addDoc' cria a coleção "usuarios" se ela não existir
-        window.salvar = async function() {
-            const nome = document.getElementById("nome").value.trim();
-            const email = document.getElementById("email").value.trim();
+        // 3. FUNÇÃO JAVASCRIPT PARA SALVAR NO FIRESTORE
+        // Torna a função global para que o 'onsubmit' possa acessá-la.
+        window.salvar = async function() {
+            const nome = document.getElementById("nome").value.trim();
+            const email = document.getElementById("email").value.trim();
 
-            if (nome === "" || email === "") {
-                alert("Por favor, preencha todos os campos.");
-                return false;
-            }
+            if (nome === "" || email === "") {
+                alert("Por favor, preencha todos os campos.");
+                return false; // Impede o envio do formulário
+            }
 
-            const dadosUsuario = {
-                nome: nome,
-                email: email,
-                data_cadastro: serverTimestamp()
-            };
+            const dadosUsuario = {
+                nome: nome,
+                email: email,
+                data_cadastro: serverTimestamp() // Adiciona o timestamp do servidor
+            };
 
-            try {
-                // Tenta salvar, criando a coleção "usuarios" se ela não existir
-                await addDoc(collection(db, "usuarios"), dadosUsuario);
-                
-                alert(Usuário ${nome} cadastrado com sucesso! Verifique a coleção 'usuarios' no seu console do Firebase.);
-                document.getElementById("cadastroForm").reset();
+            try {
+                // Adiciona o documento à coleção "usuarios"
+                await addDoc(collection(db, "usuarios"), dadosUsuario);
+                
+                alert(`Usuário ${nome} cadastrado com sucesso!`);
+                document.getElementById("cadastroForm").reset(); // Limpa o formulário
 
-            } catch (error) {
-                console.error("Erro ao adicionar o documento: ", error);
-                alert("FALHA ao salvar. Verifique se as Regras de Segurança do Firestore permitem 'write'.");
-            }
+            } catch (error) {
+                console.error("Erro ao adicionar o documento: ", error);
+                alert("FALHA ao salvar. Verifique o console e as Regras de Segurança do Firestore.");
+            }
 
-            return false;
-        }
-    </script>
+            return false; // Impede o envio padrão do formulário
+        }
+    </script>
 </body>
 </html>
