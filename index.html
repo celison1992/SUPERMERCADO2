@@ -2,11 +2,11 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Gerenciamento de Estoque Dinâmico - Final</title>
+    <title>Cadastro Simples de Estoque com Tabela</title>
     <style>
         /* Estilos básicos */
         body { font-family: Arial, sans-serif; padding: 20px; }
-        input[type="text"], input[type="number"], select { 
+        input[type="text"], input[type="number"] { 
             width: 300px; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; 
             box-sizing: border-box; 
         }
@@ -35,28 +35,14 @@
     </style>
 </head>
 <body>
-    <h1>Sistema de Estoque</h1>
+    <h1>Lançamento de Estoque</h1>
 
     <div class="secao">
-        <h3>1. Cadastrar Novo Produto (Item de Catálogo)</h3>
-        <form id="catalogoForm" onsubmit="return salvarNovoProduto()">
-            <label for="novoProdutoNome">Nome do Produto:</label><br>
-            <input type="text" id="novoProdutoNome" required><br>
-            <button type="submit">Adicionar ao Catálogo</button>
-            <p style="font-size: 0.9em; color: #666;">O nome adicionado aparecerá na lista de seleção abaixo.</p>
-        </form>
-    </div>
-
-    <hr>
-    
-    <div class="secao">
-        <h3>2. Lançamento de Entrada de Estoque</h3>
+        <h3>Cadastro de Entrada de Estoque</h3>
         <form id="estoqueForm" onsubmit="return salvarLancamentoEstoque()">
             
-            <label for="produtoSelect">Produto:</label><br>
-            <select id="produtoSelect" name="produtoSelect" required>
-                <option value="" disabled selected>Carregando catálogo...</option>
-            </select><br><br>
+            <label for="produto">Produto:</label><br>
+            <input type="text" id="produto" name="produto" required><br><br>
 
             <label for="quantidade">Quantidade:</label><br>
             <input type="number" id="quantidade" name="quantidade" required min="1"><br><br>
@@ -67,10 +53,10 @@
 
     <hr>
     
-    <button onclick="mostrarLista()">Ver Lançamentos de Estoque</button>
+    <button onclick="mostrarLista()">Ver Histórico de Lançamentos</button>
 
     <div id="listaEstoqueContainer">
-        <h3>Histórico de Lançamentos (Tempo Real)</h3>
+        <h3>Histórico de Lançamentos (Atualização em Tempo Real)</h3>
         <div id="listaLancamentos">
             <p>Carregando...</p>
         </div>
@@ -82,7 +68,7 @@
 
         // 1. CONFIGURAÇÃO DO SEU PROJETO FIREBASE
         const firebaseConfig = {
-            // VERIFIQUE SE SUAS CREDENCIAIS ESTÃO CORRETAS AQUI
+            // MANTENHA SUAS CREDENCIAIS AQUI
             apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
             authDomain: "supermercado2-2170d.firebaseapp.com",
             projectId: "supermercado2-2170d",
@@ -97,49 +83,18 @@
         
         let isLancamentosListenerActive = false; 
         
-        // Nomes das coleções no Firestore
-        const COLECAO_CATALOGO = "produtos_catalogo"; // Catálogo de produtos
-        const COLECAO_LANCAMENTOS = "lancamentos_estoque"; // Histórico de entradas
+        // ÚNICA COLEÇÃO UTILIZADA
+        const COLECAO_LANCAMENTOS = "lancamentos_estoque"; 
 
 
-        // 2. FUNÇÃO PARA CADASTRAR UM NOVO PRODUTO NO CATÁLOGO (Cria a coleção)
-        window.salvarNovoProduto = async function() {
-            const nomeProduto = document.getElementById("novoProdutoNome").value.trim();
-
-            if (nomeProduto === "") {
-                alert("O nome do produto não pode ser vazio.");
-                return false;
-            }
-
-            const dadosCatalogo = {
-                nome: nomeProduto,
-                criado_em: serverTimestamp()
-            };
-
-            try {
-                // AQUI OCORRE A TENTATIVA DE CRIAÇÃO/ESCRITA
-                await addDoc(collection(db, COLECAO_CATALOGO), dadosCatalogo);
-                
-                alert(`Produto "${nomeProduto}" adicionado ao catálogo!`);
-                document.getElementById("catalogoForm").reset();
-
-            } catch (error) {
-                // Se cair aqui, a regra 'write' está negando
-                console.error("Erro ao adicionar produto ao catálogo: ", error);
-                alert("FALHA: Não foi possível salvar. Verifique o console e as Regras do Firebase (Permissão de Escrita).");
-            }
-
-            return false;
-        }
-
-
-        // 3. FUNÇÃO PARA SALVAR O LANÇAMENTO (Usa Select do Produto e Quantidade)
+        // 2. FUNÇÃO PARA SALVAR O LANÇAMENTO
         window.salvarLancamentoEstoque = async function() {
-            const produto = document.getElementById("produtoSelect").value.trim(); 
+            // Pega o valor do campo de texto
+            const produto = document.getElementById("produto").value.trim(); 
             const quantidade = parseInt(document.getElementById("quantidade").value.trim());
 
             if (produto === "" || isNaN(quantidade) || quantidade < 1) {
-                alert("Por favor, selecione um Produto e insira uma Quantidade válida (maior que zero).");
+                alert("Por favor, preencha o Produto e a Quantidade válida (maior que zero).");
                 return false;
             }
 
@@ -157,43 +112,14 @@
 
             } catch (error) {
                 console.error("Erro ao salvar lançamento: ", error);
-                alert("FALHA ao salvar.");
+                alert("FALHA ao salvar. Verifique as Regras de Segurança do Firestore.");
             }
 
             return false;
         }
 
-
-        // 4. FUNÇÃO PARA PREENCHER O SELECT DO CATÁLOGO (Requer permissão de 'read')
-        function carregarCatalogo() {
-            const selectElement = document.getElementById('produtoSelect');
-            const colecaoRef = collection(db, COLECAO_CATALOGO);
-            
-            const q = query(colecaoRef, orderBy("nome", "asc"));
-
-            onSnapshot(q, (querySnapshot) => {
-                let optionsHtml = '<option value="" disabled selected>Selecione um Produto</option>';
-                
-                if (querySnapshot.empty) {
-                     optionsHtml += '<option value="" disabled>Nenhum produto cadastrado no catálogo.</option>';
-                } else {
-                    querySnapshot.forEach((doc) => {
-                        const item = doc.data();
-                        optionsHtml += `<option value="${item.nome}">${item.nome}</option>`;
-                    });
-                }
-                
-                selectElement.innerHTML = optionsHtml;
-
-            }, (error) => {
-                // Se cair aqui, a regra 'read' está negando
-                console.error("Erro ao carregar catálogo: ", error);
-                selectElement.innerHTML = '<option value="" disabled selected>Erro ao carregar catálogo</option>';
-            });
-        }
         
-        
-        // 5. FUNÇÃO PARA MOSTRAR A LISTA DE LANÇAMENTOS
+        // 3. FUNÇÃO PARA MOSTRAR A LISTA/TABELA
         window.mostrarLista = function() {
             document.getElementById('listaEstoqueContainer').style.display = 'block';
 
@@ -204,7 +130,7 @@
         }
         
         
-        // 6. FUNÇÃO DE LEITURA EM TEMPO REAL DOS LANÇAMENTOS
+        // 4. FUNÇÃO DE LEITURA EM TEMPO REAL E EXIBIÇÃO NA TABELA
         function carregarLancamentosEmTempoReal() {
             const listaDiv = document.getElementById('listaLancamentos');
             const colecaoRef = collection(db, COLECAO_LANCAMENTOS);
@@ -244,10 +170,6 @@
                 listaDiv.innerHTML = '<p style="color: red;">Erro ao carregar lançamentos. Verifique as Regras de Segurança do Firestore.</p>';
             });
         }
-
-        // 7. INICIALIZAÇÃO: Carrega o catálogo assim que a página é aberta
-        document.addEventListener('DOMContentLoaded', carregarCatalogo);
-
     </script>
 </body>
 </html>
