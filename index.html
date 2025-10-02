@@ -2,11 +2,11 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Gerenciamento de Contatos Dinâmico - Firebase</title>
+    <title>Gerenciamento de Estoque Dinâmico - Firebase</title>
     <style>
         /* Estilos básicos */
         body { font-family: Arial, sans-serif; padding: 20px; }
-        input[type="text"], input[type="email"], select { 
+        input[type="text"], input[type="number"], select { 
             width: 300px; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; 
             box-sizing: border-box; 
         }
@@ -27,7 +27,7 @@
         th { background-color: #f2f2f2; }
 
         /* O container da lista estará oculto por padrão */
-        #listaContatosContainer {
+        #listaEstoqueContainer {
             margin-top: 30px;
             padding-top: 15px;
             display: none; 
@@ -35,43 +35,43 @@
     </style>
 </head>
 <body>
-    <h1>Sistema de Contatos</h1>
+    <h1>Sistema de Estoque</h1>
 
     <div class="secao">
-        <h3>1. Cadastrar Novo Nome (Preenche a lista de seleção)</h3>
-        <form id="catalogoForm" onsubmit="return salvarNovoNome()">
-            <label for="novoNome">Nome para o Catálogo:</label><br>
-            <input type="text" id="novoNome" required><br>
+        <h3>1. Cadastrar Novo Produto (Item de Catálogo)</h3>
+        <form id="catalogoForm" onsubmit="return salvarNovoProduto()">
+            <label for="novoProdutoNome">Nome do Produto:</label><br>
+            <input type="text" id="novoProdutoNome" required><br>
             <button type="submit">Adicionar ao Catálogo</button>
-            <p style="font-size: 0.9em; color: #666;">O nome adicionado aparecerá na lista de seleção abaixo.</p>
+            <p style="font-size: 0.9em; color: #666;">Isso adiciona o produto à lista de opções abaixo.</p>
         </form>
     </div>
 
     <hr>
     
     <div class="secao">
-        <h3>2. Cadastro de Contato</h3>
-        <form id="contatoForm" onsubmit="return salvarContato()">
+        <h3>2. Lançamento de Entrada de Estoque</h3>
+        <form id="estoqueForm" onsubmit="return salvarLancamentoEstoque()">
             
-            <label for="nomeSelect">Nome:</label><br>
-            <select id="nomeSelect" name="nomeSelect" required>
+            <label for="produtoSelect">Produto:</label><br>
+            <select id="produtoSelect" name="produtoSelect" required>
                 <option value="" disabled selected>Carregando catálogo...</option>
             </select><br><br>
 
-            <label for="email">Email:</label><br>
-            <input type="email" id="email" name="email" required><br><br>
+            <label for="quantidade">Quantidade:</label><br>
+            <input type="number" id="quantidade" name="quantidade" required min="1"><br><br>
 
-            <button type="submit">Salvar Contato</button>
+            <button type="submit">Salvar Lançamento</button>
         </form>
     </div>
 
     <hr>
     
-    <button onclick="mostrarLista()">Ver Contatos Cadastrados</button>
+    <button onclick="mostrarLista()">Ver Lançamentos de Estoque</button>
 
-    <div id="listaContatosContainer">
-        <h3>Contatos Salvos (Tempo Real)</h3>
-        <div id="listaContatos">
+    <div id="listaEstoqueContainer">
+        <h3>Histórico de Lançamentos (Tempo Real)</h3>
+        <div id="listaLancamentos">
             <p>Carregando...</p>
         </div>
     </div>
@@ -94,66 +94,68 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         
-        let isContatosListenerActive = false; 
+        let isLancamentosListenerActive = false; 
         
-        // Nomes das coleções no Firestore
-        const COLECAO_CATALOGO = "usuarios_catalogo"; 
-        const COLECAO_CONTATOS = "contatos_salvos"; 
+        // NOVOS NOMES DE COLEÇÕES
+        const COLECAO_CATALOGO = "produtos_catalogo"; 
+        const COLECAO_LANCAMENTOS = "lancamentos_estoque"; 
 
 
-        // 2. FUNÇÃO PARA CADASTRAR UM NOVO NOME (Catalogo)
-        window.salvarNovoNome = async function() {
-            const nomeUsuario = document.getElementById("novoNome").value.trim();
+        // 2. FUNÇÃO PARA CADASTRAR UM NOVO PRODUTO NO CATÁLOGO
+        window.salvarNovoProduto = async function() {
+            const nomeProduto = document.getElementById("novoProdutoNome").value.trim();
 
-            if (nomeUsuario === "") {
-                alert("O nome para o catálogo não pode ser vazio.");
+            if (nomeProduto === "") {
+                alert("O nome do produto não pode ser vazio.");
                 return false;
             }
 
             const dadosCatalogo = {
-                nome: nomeUsuario,
+                nome: nomeProduto,
                 criado_em: serverTimestamp()
             };
 
             try {
+                // Salva na coleção 'produtos_catalogo'
                 await addDoc(collection(db, COLECAO_CATALOGO), dadosCatalogo);
                 
-                alert(`Nome "${nomeUsuario}" adicionado ao catálogo!`);
+                alert(`Produto "${nomeProduto}" adicionado ao catálogo!`);
                 document.getElementById("catalogoForm").reset();
 
             } catch (error) {
-                console.error("Erro ao adicionar nome ao catálogo: ", error);
-                alert("FALHA ao salvar o catálogo. Verifique o console.");
+                console.error("Erro ao adicionar produto ao catálogo: ", error);
+                alert("FALHA ao salvar o catálogo.");
             }
 
             return false;
         }
 
 
-        // 3. FUNÇÃO PARA SALVAR O CONTATO (Usa Select e Email)
-        window.salvarContato = async function() {
-            const nome = document.getElementById("nomeSelect").value.trim(); 
-            const email = document.getElementById("email").value.trim();
+        // 3. FUNÇÃO PARA SALVAR O LANÇAMENTO (Usa Select do Produto e Quantidade)
+        window.salvarLancamentoEstoque = async function() {
+            const produto = document.getElementById("produtoSelect").value.trim(); 
+            const quantidade = parseInt(document.getElementById("quantidade").value.trim());
 
-            if (nome === "" || email === "") {
-                alert("Por favor, selecione um Nome e insira um Email.");
+            if (produto === "" || isNaN(quantidade) || quantidade < 1) {
+                alert("Por favor, selecione um Produto e insira uma Quantidade válida (maior que zero).");
                 return false;
             }
 
-            const dadosContato = {
-                nome: nome,
-                email: email,
-                data_cadastro: serverTimestamp()
+            const dadosEstoque = {
+                produto: produto,
+                quantidade: quantidade, // Campo alterado
+                data_lancamento: serverTimestamp()
             };
 
             try {
-                await addDoc(collection(db, COLECAO_CONTATOS), dadosContato);
+                // Salva na coleção 'lancamentos_estoque'
+                await addDoc(collection(db, COLECAO_LANCAMENTOS), dadosEstoque);
                 
-                alert(`SUCESSO! Contato de '${nome}' (${email}) salvo.`);
-                document.getElementById("contatoForm").reset();
+                alert(`SUCESSO! Lançamento de ${quantidade} unidades de '${produto}' salvo.`);
+                document.getElementById("estoqueForm").reset();
 
             } catch (error) {
-                console.error("Erro ao salvar contato: ", error);
+                console.error("Erro ao salvar lançamento: ", error);
                 alert("FALHA ao salvar.");
             }
 
@@ -161,18 +163,18 @@
         }
 
 
-        // 4. FUNÇÃO PARA PREENCHER O SELECT (onSnapshot no Catálogo)
+        // 4. FUNÇÃO PARA PREENCHER O SELECT DO CATÁLOGO DE PRODUTOS
         function carregarCatalogo() {
-            const selectElement = document.getElementById('nomeSelect');
+            const selectElement = document.getElementById('produtoSelect');
             const colecaoRef = collection(db, COLECAO_CATALOGO);
             
             const q = query(colecaoRef, orderBy("nome", "asc"));
 
             onSnapshot(q, (querySnapshot) => {
-                let optionsHtml = '<option value="" disabled selected>Selecione um Nome</option>';
+                let optionsHtml = '<option value="" disabled selected>Selecione um Produto</option>';
                 
                 if (querySnapshot.empty) {
-                     optionsHtml += '<option value="" disabled>Nenhum nome cadastrado no catálogo.</option>';
+                     optionsHtml += '<option value="" disabled>Nenhum produto cadastrado no catálogo.</option>';
                 } else {
                     querySnapshot.forEach((doc) => {
                         const item = doc.data();
@@ -189,44 +191,44 @@
         }
         
         
-        // 5. FUNÇÃO PARA MOSTRAR A LISTA (Ativa o ouvinte principal)
+        // 5. FUNÇÃO PARA MOSTRAR A LISTA DE LANÇAMENTOS
         window.mostrarLista = function() {
-            document.getElementById('listaContatosContainer').style.display = 'block';
+            document.getElementById('listaEstoqueContainer').style.display = 'block';
 
-            if (!isContatosListenerActive) {
-                carregarContatosEmTempoReal();
-                isContatosListenerActive = true;
+            if (!isLancamentosListenerActive) {
+                carregarLancamentosEmTempoReal();
+                isLancamentosListenerActive = true;
             }
         }
         
         
-        // 6. FUNÇÃO DE LEITURA EM TEMPO REAL DOS CONTATOS SALVOS
-        function carregarContatosEmTempoReal() {
-            const listaDiv = document.getElementById('listaContatos');
-            const colecaoRef = collection(db, COLECAO_CONTATOS);
+        // 6. FUNÇÃO DE LEITURA EM TEMPO REAL DOS LANÇAMENTOS
+        function carregarLancamentosEmTempoReal() {
+            const listaDiv = document.getElementById('listaLancamentos');
+            const colecaoRef = collection(db, COLECAO_LANCAMENTOS);
             
-            const q = query(colecaoRef, orderBy("data_cadastro", "desc"));
+            const q = query(colecaoRef, orderBy("data_lancamento", "desc"));
 
             onSnapshot(q, (querySnapshot) => {
-                let htmlTabela = '<table><thead><tr><th>Nome</th><th>Email</th><th>Data do Cadastro</th></tr></thead><tbody>';
+                // Cabeçalhos alterados para Produto e Quantidade
+                let htmlTabela = '<table><thead><tr><th>Produto</th><th>Quantidade</th><th>Data do Lançamento</th></tr></thead><tbody>';
                 
                 if (querySnapshot.empty) {
-                     listaDiv.innerHTML = '<p>Nenhum contato registrado ainda.</p>';
+                     listaDiv.innerHTML = '<p>Nenhum lançamento de estoque registrado ainda.</p>';
                      return;
                 }
 
                 querySnapshot.forEach((doc) => {
                     const item = doc.data();
                     
-                    const data = item.data_cadastro ? 
-                                 new Date(item.data_cadastro.toDate()).toLocaleString('pt-BR') : 
+                    const data = item.data_lancamento ? 
+                                 new Date(item.data_lancamento.toDate()).toLocaleString('pt-BR') : 
                                  'Aguardando...';
 
                     htmlTabela += `
                         <tr>
-                            <td>${item.nome}</td>
-                            <td>${item.email}</td>
-                            <td>${data}</td>
+                            <td>${item.produto}</td>
+                            <td>${item.quantidade}</td> <td>${data}</td>
                         </tr>
                     `;
                 });
@@ -237,7 +239,7 @@
 
             }, (error) => {
                 console.error("Erro ao receber atualização em tempo real: ", error);
-                listaDiv.innerHTML = '<p style="color: red;">Erro ao carregar contatos. Verifique as Regras de Segurança do Firestore.</p>';
+                listaDiv.innerHTML = '<p style="color: red;">Erro ao carregar lançamentos. Verifique as Regras de Segurança do Firestore.</p>';
             });
         }
 
