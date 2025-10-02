@@ -2,12 +2,19 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Cadastro e Lista de Usuários em Tempo Real</title>
+    <title>Cadastro e Lista de Usuários com Botão</title>
     <style>
         /* Estilo básico para a tabela */
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
+        /* A lista de usuários estará oculta inicialmente */
+        #listaUsuariosContainer {
+            margin-top: 30px;
+            border-top: 1px solid #ccc;
+            padding-top: 15px;
+            display: none; /* ESCONDE A DIV INICIALMENTE */
+        }
     </style>
 </head>
 <body>
@@ -24,17 +31,21 @@
     </form>
 
     <hr>
-    <h3>Usuários Cadastrados (Tempo Real)</h3>
-    <div id="listaUsuarios">
-        <p>Carregando usuários...</p>
+    
+    <button onclick="mostrarLista()">Ver Usuários Cadastrados</button>
+
+    <div id="listaUsuariosContainer">
+        <h3>Usuários Cadastrados (Atualização em Tempo Real)</h3>
+        <div id="listaUsuarios">
+            <p>Carregando...</p>
+        </div>
     </div>
 
     <script type="module">
-        // Importa as funções necessárias, incluindo o onSnapshot para o tempo real
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
 
-        // 2. CONFIGURAÇÃO DO SEU PROJETO
+        // CONFIGURAÇÃO DO SEU PROJETO
         const firebaseConfig = {
             apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
             authDomain: "supermercado2-2170d.firebaseapp.com",
@@ -45,11 +56,15 @@
             measurementId: "G-F9K74XEXR1"
         };
 
-        // Inicializa o Firebase e a referência ao banco de dados
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        
+        // Variável para garantir que o ouvinte só seja ativado uma vez
+        let isListenerActive = false;
 
-        // 3. FUNÇÃO JAVASCRIPT PARA SALVAR NO FIRESTORE (Não precisa mudar nada aqui)
+        // --------------------------------------------------------
+        // FUNÇÃO PARA SALVAR (Inalterada)
+        // --------------------------------------------------------
         window.salvar = async function() {
             const nome = document.getElementById("nome").value.trim();
             const email = document.getElementById("email").value.trim();
@@ -68,8 +83,7 @@
             try {
                 await addDoc(collection(db, "usuarios"), dadosUsuario);
                 
-                // A atualização da lista será automática graças ao onSnapshot!
-                alert(`Usuário ${nome} cadastrado com sucesso! A lista abaixo foi atualizada automaticamente.`);
+                alert(`Usuário ${nome} cadastrado com sucesso!`);
                 document.getElementById("cadastroForm").reset();
 
             } catch (error) {
@@ -80,21 +94,37 @@
             return false;
         }
 
-        // 4. FUNÇÃO PARA LER E ATUALIZAR A LISTA EM TEMPO REAL
+        // --------------------------------------------------------
+        // FUNÇÃO ATIVADA PELO NOVO BOTÃO
+        // --------------------------------------------------------
+        window.mostrarLista = function() {
+            // Torna o container da lista visível
+            document.getElementById('listaUsuariosContainer').style.display = 'block';
+
+            // Ativa o ouvinte do Firestore apenas na primeira vez
+            if (!isListenerActive) {
+                carregarUsuariosEmTempoReal();
+                isListenerActive = true;
+            }
+        }
+        
+        // --------------------------------------------------------
+        // FUNÇÃO DE LEITURA EM TEMPO REAL (onSnapshot)
+        // --------------------------------------------------------
         function carregarUsuariosEmTempoReal() {
             const listaDiv = document.getElementById('listaUsuarios');
             const colecaoRef = collection(db, "usuarios");
             
-            // Cria uma Query para ordenar por data_cadastro (do mais novo para o mais antigo)
+            // Ordena os usuários pelo mais recente
             const q = query(colecaoRef, orderBy("data_cadastro", "desc"));
 
-            // onSnapshot é o "ouvinte" que dispara toda vez que a coleção muda
             onSnapshot(q, (querySnapshot) => {
                 let htmlTabela = '<table><thead><tr><th>Nome</th><th>Email</th><th>Data de Cadastro</th></tr></thead><tbody>';
                 
                 querySnapshot.forEach((doc) => {
                     const usuario = doc.data();
-                    // Converte o timestamp do Firebase para uma data legível
+                    
+                    // Formata a data de cadastro
                     const data = usuario.data_cadastro ? 
                                  new Date(usuario.data_cadastro.toDate()).toLocaleString('pt-BR') : 
                                  'Aguardando...';
@@ -112,16 +142,12 @@
                 
                 // Atualiza o conteúdo da div com a nova tabela
                 listaDiv.innerHTML = htmlTabela;
+
             }, (error) => {
-                // Em caso de erro na leitura (ex: Regras de Segurança)
                 console.error("Erro ao receber atualização em tempo real: ", error);
                 listaDiv.innerHTML = '<p style="color: red;">Erro ao carregar lista. Verifique as Regras de Segurança do Firestore.</p>';
             });
         }
-        
-        // Inicia o carregamento da lista assim que a página carrega
-        carregarUsuariosEmTempoReal();
-
     </script>
 </body>
 </html>
