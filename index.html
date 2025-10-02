@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Gerenciamento de Estoque Dinâmico - Firebase</title>
+    <title>Gerenciamento de Estoque Dinâmico - Final</title>
     <style>
         /* Estilos básicos */
         body { font-family: Arial, sans-serif; padding: 20px; }
@@ -98,11 +98,11 @@
         let isLancamentosListenerActive = false; 
         
         // Nomes das coleções no Firestore
-        const COLECAO_CATALOGO = "produtos_catalogo"; 
-        const COLECAO_LANCAMENTOS = "lancamentos_estoque"; 
+        const COLECAO_CATALOGO = "produtos_catalogo"; // Catálogo de produtos
+        const COLECAO_LANCAMENTOS = "lancamentos_estoque"; // Histórico de entradas
 
 
-        // 2. FUNÇÃO PARA CADASTRAR UM NOVO PRODUTO NO CATÁLOGO
+        // 2. FUNÇÃO PARA CADASTRAR UM NOVO PRODUTO NO CATÁLOGO (Cria a coleção)
         window.salvarNovoProduto = async function() {
             const nomeProduto = document.getElementById("novoProdutoNome").value.trim();
 
@@ -117,15 +117,16 @@
             };
 
             try {
-                // Salva na coleção 'produtos_catalogo'
+                // AQUI OCORRE A TENTATIVA DE CRIAÇÃO/ESCRITA
                 await addDoc(collection(db, COLECAO_CATALOGO), dadosCatalogo);
                 
                 alert(`Produto "${nomeProduto}" adicionado ao catálogo!`);
                 document.getElementById("catalogoForm").reset();
 
             } catch (error) {
+                // Se cair aqui, a regra 'write' está negando
                 console.error("Erro ao adicionar produto ao catálogo: ", error);
-                alert("FALHA ao salvar o catálogo. Verifique o Console e Regras de Segurança.");
+                alert("FALHA: Não foi possível salvar. Verifique o console e as Regras do Firebase (Permissão de Escrita).");
             }
 
             return false;
@@ -149,7 +150,6 @@
             };
 
             try {
-                // Salva na coleção 'lancamentos_estoque'
                 await addDoc(collection(db, COLECAO_LANCAMENTOS), dadosEstoque);
                 
                 alert(`SUCESSO! Lançamento de ${quantidade} unidades de '${produto}' salvo.`);
@@ -164,7 +164,7 @@
         }
 
 
-        // 4. FUNÇÃO PARA PREENCHER O SELECT DO CATÁLOGO (CHAVE PARA O DROPDOWN)
+        // 4. FUNÇÃO PARA PREENCHER O SELECT DO CATÁLOGO (Requer permissão de 'read')
         function carregarCatalogo() {
             const selectElement = document.getElementById('produtoSelect');
             const colecaoRef = collection(db, COLECAO_CATALOGO);
@@ -186,6 +186,7 @@
                 selectElement.innerHTML = optionsHtml;
 
             }, (error) => {
+                // Se cair aqui, a regra 'read' está negando
                 console.error("Erro ao carregar catálogo: ", error);
                 selectElement.innerHTML = '<option value="" disabled selected>Erro ao carregar catálogo</option>';
             });
