@@ -2,22 +2,32 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Cadastro e Lista de Usuários em Tempo Real - Firebase</title>
+    <title>Gerenciamento de Estoque Dinâmico - Firebase</title>
     <style>
         /* Estilos básicos */
         body { font-family: Arial, sans-serif; padding: 20px; }
-        input[type="text"], input[type="email"] { width: 300px; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; }
-        button { padding: 10px 15px; background-color: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 4px; margin-right: 10px; }
-        button:hover { background-color: #45a049; }
+        input[type="text"], input[type="number"], select { 
+            width: 300px; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; 
+            box-sizing: border-box; /* Garante que padding não estoure o width */
+        }
+        button { 
+            padding: 10px 15px; background-color: #007bff; color: white; border: none; 
+            cursor: pointer; border-radius: 4px; margin-right: 10px; 
+        }
+        button:hover { background-color: #0056b3; }
         hr { margin: 30px 0; border: 0; border-top: 1px solid #eee; }
 
+        /* Estilos de Seção */
+        .secao { border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        .secao h3 { margin-top: 0; }
+        
         /* Estilos para a Tabela */
         table { border-collapse: collapse; width: 100%; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
         th { background-color: #f2f2f2; }
 
-        /* O container da lista estará oculto inicialmente */
-        #listaUsuariosContainer {
+        /* O container da lista estará oculto por padrão */
+        #listaEstoqueContainer {
             margin-top: 30px;
             padding-top: 15px;
             display: none; 
@@ -25,35 +35,52 @@
     </style>
 </head>
 <body>
-    <h2>Cadastro de Usuário</h2>
-    
-    <form id="cadastroForm" onsubmit="return salvar()">
-        <label for="nome">Nome:</label><br>
-        <input type="text" id="nome" name="nome" required><br><br>
+    <h1>Sistema de Estoque</h1>
 
-        <label for="email">Email:</label><br>
-        <input type="email" id="email" name="email" required><br><br>
-
-        <button type="submit">Salvar</button>
-    </form>
+    <div class="secao">
+        <h3>1. Cadastrar Novo Produto (Item de Catálogo)</h3>
+        <form id="catalogoForm" onsubmit="return salvarNovoProduto()">
+            <label for="novoProdutoNome">Nome do Produto:</label><br>
+            <input type="text" id="novoProdutoNome" required><br>
+            <button type="submit">Adicionar ao Catálogo</button>
+            <p style="font-size: 0.9em; color: #666;">Isso adiciona o nome à lista de opções abaixo.</p>
+        </form>
+    </div>
 
     <hr>
     
-    <button onclick="mostrarLista()">Ver Usuários Cadastrados</button>
+    <div class="secao">
+        <h3>2. Lançamento de Entrada de Estoque</h3>
+        <form id="estoqueForm" onsubmit="return salvarLancamentoEstoque()">
+            
+            <label for="produtoSelect">Produto:</label><br>
+            <select id="produtoSelect" name="produtoSelect" required>
+                <option value="" disabled selected>Carregando catálogo...</option>
+            </select><br><br>
 
-    <div id="listaUsuariosContainer">
-        <h3>Usuários Cadastrados (Atualização em Tempo Real)</h3>
-        <div id="listaUsuarios">
+            <label for="quantidade">Quantidade de Entrada:</label><br>
+            <input type="number" id="quantidade" name="quantidade" required min="1"><br><br>
+
+            <button type="submit">Salvar Lançamento</button>
+        </form>
+    </div>
+
+    <hr>
+    
+    <button onclick="mostrarLista()">Ver Lançamentos Cadastrados</button>
+
+    <div id="listaEstoqueContainer">
+        <h3>Histórico de Lançamentos (Tempo Real)</h3>
+        <div id="listaLancamentos">
             <p>Carregando...</p>
         </div>
     </div>
 
     <script type="module">
-        // 1. IMPORTAÇÕES NECESSÁRIAS
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
         import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
 
-        // 2. CONFIGURAÇÃO DO SEU PROJETO FIREBASE
+        // 1. CONFIGURAÇÃO DO SEU PROJETO FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
             authDomain: "supermercado2-2170d.firebaseapp.com",
@@ -67,80 +94,143 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         
-        let isListenerActive = false; // Controla se o ouvinte já foi ativado
+        let isEstoqueListenerActive = false; // Controla o ouvinte do histórico
+        
+        // NOVOS NOMES DE COLEÇÕES
+        const COLECAO_CATALOGO = "produtos_catalogo"; 
+        const COLECAO_ESTOQUE = "itens_estoque"; 
 
-        // 3. FUNÇÃO PARA SALVAR NO FIRESTORE
-        window.salvar = async function() {
-            const nome = document.getElementById("nome").value.trim();
-            const email = document.getElementById("email").value.trim();
 
-            if (nome === "" || email === "") {
-                alert("Por favor, preencha todos os campos.");
+        // 2. FUNÇÃO PARA CADASTRAR UM NOVO PRODUTO NO CATÁLOGO
+        window.salvarNovoProduto = async function() {
+            const nomeProduto = document.getElementById("novoProdutoNome").value.trim();
+
+            if (nomeProduto === "") {
+                alert("O nome do produto não pode ser vazio.");
                 return false;
             }
 
-            const dadosUsuario = {
-                nome: nome,
-                email: email,
-                data_cadastro: serverTimestamp()
+            const dadosCatalogo = {
+                nome: nomeProduto,
+                criado_em: serverTimestamp()
             };
 
             try {
-                // Adiciona o novo documento à coleção "usuarios"
-                await addDoc(collection(db, "usuarios"), dadosUsuario);
+                // Salva na coleção 'produtos_catalogo'
+                await addDoc(collection(db, COLECAO_CATALOGO), dadosCatalogo);
                 
-                alert(`SUCESSO! Usuário ${nome} cadastrado.`);
-                document.getElementById("cadastroForm").reset();
+                alert(`Produto "${nomeProduto}" adicionado ao catálogo!`);
+                document.getElementById("catalogoForm").reset();
 
             } catch (error) {
-                console.error("Erro ao adicionar o documento: ", error);
-                alert("FALHA ao salvar. Verifique o console e as Regras de Segurança do Firestore.");
+                console.error("Erro ao adicionar produto ao catálogo: ", error);
+                alert("FALHA ao salvar o catálogo.");
             }
 
             return false;
         }
 
-        // 4. FUNÇÃO ATIVADA PELO BOTÃO 'Ver Usuários'
-        window.mostrarLista = function() {
-            // 1. Torna o container da lista visível
-            document.getElementById('listaUsuariosContainer').style.display = 'block';
 
-            // 2. Ativa o ouvinte do Firestore apenas na primeira vez
-            if (!isListenerActive) {
-                carregarUsuariosEmTempoReal();
-                isListenerActive = true;
+        // 3. FUNÇÃO PARA LANÇAR UM ITEM NO ESTOQUE (USA O SELECT)
+        window.salvarLancamentoEstoque = async function() {
+            const produto = document.getElementById("produtoSelect").value.trim(); 
+            const quantidade = parseInt(document.getElementById("quantidade").value.trim());
+
+            if (produto === "" || isNaN(quantidade) || quantidade < 1) {
+                alert("Por favor, selecione um produto e insira uma quantidade válida.");
+                return false;
+            }
+
+            const dadosEstoque = {
+                produto: produto,
+                quantidade: quantidade,
+                data_lancamento: serverTimestamp()
+            };
+
+            try {
+                // Salva na coleção 'itens_estoque'
+                await addDoc(collection(db, COLECAO_ESTOQUE), dadosEstoque);
+                
+                alert(`SUCESSO! Lançamento de ${quantidade} unidades de '${produto}' salvo.`);
+                document.getElementById("estoqueForm").reset();
+
+            } catch (error) {
+                console.error("Erro ao salvar lançamento de estoque: ", error);
+                alert("FALHA ao salvar.");
+            }
+
+            return false;
+        }
+
+
+        // 4. FUNÇÃO PARA PREENCHER O SELECT DO CATÁLOGO (CHAMADA AO CARREGAR A PÁGINA)
+        function carregarCatalogo() {
+            const selectElement = document.getElementById('produtoSelect');
+            const colecaoRef = collection(db, COLECAO_CATALOGO);
+            
+            // Ordena alfabeticamente
+            const q = query(colecaoRef, orderBy("nome", "asc"));
+
+            // Ouve as mudanças no catálogo em tempo real
+            onSnapshot(q, (querySnapshot) => {
+                let optionsHtml = '<option value="" disabled selected>Selecione um Produto</option>';
+                
+                if (querySnapshot.empty) {
+                     optionsHtml += '<option value="" disabled>Nenhum produto cadastrado no catálogo.</option>';
+                } else {
+                    querySnapshot.forEach((doc) => {
+                        const item = doc.data();
+                        optionsHtml += `<option value="${item.nome}">${item.nome}</option>`;
+                    });
+                }
+                
+                selectElement.innerHTML = optionsHtml;
+
+            }, (error) => {
+                console.error("Erro ao carregar catálogo: ", error);
+                selectElement.innerHTML = '<option value="" disabled selected>Erro ao carregar catálogo</option>';
+            });
+        }
+        
+        
+        // 5. FUNÇÃO PARA MOSTRAR A LISTA DE LANÇAMENTOS
+        window.mostrarLista = function() {
+            document.getElementById('listaEstoqueContainer').style.display = 'block';
+
+            if (!isEstoqueListenerActive) {
+                carregarLancamentosEmTempoReal();
+                isEstoqueListenerActive = true;
             }
         }
         
-        // 5. FUNÇÃO DE LEITURA EM TEMPO REAL (onSnapshot)
-        function carregarUsuariosEmTempoReal() {
-            const listaDiv = document.getElementById('listaUsuarios');
-            const colecaoRef = collection(db, "usuarios");
+        
+        // 6. FUNÇÃO DE LEITURA EM TEMPO REAL DO ESTOQUE
+        function carregarLancamentosEmTempoReal() {
+            const listaDiv = document.getElementById('listaLancamentos');
+            const colecaoRef = collection(db, COLECAO_ESTOQUE);
             
-            // Query: Seleciona todos os documentos e ordena pelo mais recente
-            const q = query(colecaoRef, orderBy("data_cadastro", "desc"));
+            // Ordena pelo lançamento mais recente
+            const q = query(colecaoRef, orderBy("data_lancamento", "desc"));
 
-            // onSnapshot: Cria o ouvinte em tempo real
             onSnapshot(q, (querySnapshot) => {
-                let htmlTabela = '<table><thead><tr><th>Nome</th><th>Email</th><th>Data de Cadastro</th></tr></thead><tbody>';
+                let htmlTabela = '<table><thead><tr><th>Produto</th><th>Quantidade</th><th>Data do Lançamento</th></tr></thead><tbody>';
                 
                 if (querySnapshot.empty) {
-                     listaDiv.innerHTML = '<p>Nenhum usuário cadastrado ainda.</p>';
+                     listaDiv.innerHTML = '<p>Nenhum lançamento de estoque registrado ainda.</p>';
                      return;
                 }
 
                 querySnapshot.forEach((doc) => {
-                    const usuario = doc.data();
+                    const item = doc.data();
                     
-                    // Converte o Timestamp do Firebase para um formato legível
-                    const data = usuario.data_cadastro ? 
-                                 new Date(usuario.data_cadastro.toDate()).toLocaleString('pt-BR') : 
+                    const data = item.data_lancamento ? 
+                                 new Date(item.data_lancamento.toDate()).toLocaleString('pt-BR') : 
                                  'Aguardando...';
 
                     htmlTabela += `
                         <tr>
-                            <td>${usuario.nome}</td>
-                            <td>${usuario.email}</td>
+                            <td>${item.produto}</td>
+                            <td>${item.quantidade}</td>
                             <td>${data}</td>
                         </tr>
                     `;
@@ -148,15 +238,17 @@
 
                 htmlTabela += '</tbody></table>';
                 
-                // Atualiza o HTML da lista
                 listaDiv.innerHTML = htmlTabela;
 
             }, (error) => {
-                // Trata erro (provavelmente Regras de Segurança)
                 console.error("Erro ao receber atualização em tempo real: ", error);
-                listaDiv.innerHTML = '<p style="color: red;">Erro ao carregar lista. Verifique as Regras de Segurança do Firestore.</p>';
+                listaDiv.innerHTML = '<p style="color: red;">Erro ao carregar lançamentos. Verifique as Regras de Segurança do Firestore.</p>';
             });
         }
+
+        // 7. INICIALIZAÇÃO: Chama o carregamento do catálogo assim que a página carrega
+        document.addEventListener('DOMContentLoaded', carregarCatalogo);
+
     </script>
 </body>
 </html>
