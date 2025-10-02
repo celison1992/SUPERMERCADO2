@@ -1,167 +1,150 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Cadastro Simples de Estoque com Tabela</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    input[type="text"], input[type="number"] {
-      width: 300px; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc;
-      box-sizing: border-box;
-    }
-    button {
-      padding: 10px 15px; background-color: #007bff; color: white; border: none;
-      cursor: pointer; border-radius: 4px; margin-right: 10px;
-    }
-    button:hover { background-color: #0056b3; }
-    hr { margin: 30px 0; border: 0; border-top: 1px solid #eee; }
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    getDocs,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    doc
+  } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-analytics.js";
 
-    .secao { border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
-    .secao h3 { margin-top: 0; }
+  // 🔄 Nova configuração do Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
+    authDomain: "supermercado2-2170d.firebaseapp.com",
+    projectId: "supermercado2-2170d",
+    storageBucket: "supermercado2-2170d.firebasestorage.app",
+    messagingSenderId: "309197163875",
+    appId: "1:309197163875:web:5d53fb08bf34f6be0d1756",
+    measurementId: "G-TBYLX75XLM"
+  };
 
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-    th { background-color: #f2f2f2; }
+  // 🔧 Inicialização do Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const db = getFirestore(app);
+  const colecao = collection(db, "supermercado");
+  let mercados = [];
 
-    #listaEstoqueContainer {
-      margin-top: 30px;
-      padding-top: 15px;
-      display: none;
-    }
-  </style>
-</head>
-<body>
-  <h1>Lançamento de Estoque</h1>
+  // 🔄 Funções mantidas (carregar, cadastrar, editar, excluir, etc.)
+  async function carregarMercados() {
+    const snapshot = await getDocs(colecao);
+    mercados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    atualizarLista();
+  }
 
-  <div class="secao">
-    <h3>Cadastro de Entrada de Estoque</h3>
-    <form id="estoqueForm" onsubmit="return salvarLancamentoEstoque()">
+  async function cadastrarMercado() {
+    const nome = document.getElementById('nomeMercado').value.trim().toUpperCase();
+    const tipo = document.getElementById('tipoLogradouro').value.trim().toUpperCase();
+    const rua = document.getElementById('ruaMercado').value.trim().toUpperCase();
+    const bairro = document.getElementById('bairroMercado').value.trim().toUpperCase();
 
-      <label for="produto">Produto:</label><br>
-      <input type="text" id="produto" name="produto" required><br><br>
-
-      <label for="grupo">Grupo do Produto:</label><br>
-      <input type="text" id="grupo" name="grupo" required><br><br>
-
-      <label for="quantidade">Quantidade:</label><br>
-      <input type="number" id="quantidade" name="quantidade" required min="1"><br><br>
-
-      <button type="submit">Salvar Lançamento</button>
-    </form>
-  </div>
-
-  <hr>
-
-  <button onclick="mostrarLista()">Ver Histórico de Lançamentos</button>
-
-  <div id="listaEstoqueContainer">
-    <h3>Histórico de Lançamentos (Atualização em Tempo Real)</h3>
-    <div id="listaLancamentos">
-      <p>Carregando...</p>
-    </div>
-  </div>
-
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
-    import {
-      getFirestore,
-      collection,
-      addDoc,
-      serverTimestamp,
-      onSnapshot,
-      query,
-      orderBy
-    } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
-      authDomain: "supermercado2-2170d.firebaseapp.com",
-      projectId: "supermercado2-2170d",
-      storageBucket: "supermercado2-2170d.firebasestorage.app",
-      messagingSenderId: "309197163875",
-      appId: "1:309197163875:web:ca8f836c3a69bc710d1756",
-      measurementId: "G-F9K74XEXR1"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const COLECAO_LANCAMENTOS = "lancamentos_estoque";
-    let isLancamentosListenerActive = false;
-
-    window.salvarLancamentoEstoque = async function() {
-      const produto = document.getElementById("produto").value.trim();
-      const grupo = document.getElementById("grupo").value.trim();
-      const quantidade = parseInt(document.getElementById("quantidade").value.trim());
-
-      if (produto === "" || grupo === "" || isNaN(quantidade) || quantidade < 1) {
-        alert("Preencha todos os campos corretamente.");
-        return false;
-      }
-
-      const dadosEstoque = {
-        produto: produto,
-        grupo: grupo,
-        quantidade: quantidade,
-        data_lancamento: serverTimestamp()
-      };
-
-      try {
-        await addDoc(collection(db, COLECAO_LANCAMENTOS), dadosEstoque);
-        alert(`SUCESSO! Lançamento de ${quantidade} unidades de '${produto}' salvo.`);
-        document.getElementById("estoqueForm").reset();
-      } catch (error) {
-        console.error("Erro ao salvar lançamento: ", error);
-        alert("FALHA ao salvar. Verifique as Regras de Segurança do Firestore.");
-      }
-
-      return false;
+    if (!nome || !tipo || !rua || !bairro) {
+      alert('Preencha todos os campos.');
+      return;
     }
 
-    window.mostrarLista = function() {
-      document.getElementById('listaEstoqueContainer').style.display = 'block';
-
-      if (!isLancamentosListenerActive) {
-        carregarLancamentosEmTempoReal();
-        isLancamentosListenerActive = true;
-      }
+    const endereco = `${tipo} ${rua}, BAIRRO ${bairro}`;
+    const existe = mercados.some(m => m.nome === nome && m.endereco === endereco);
+    if (existe) {
+      alert('Este supermercado já está cadastrado.');
+      return;
     }
 
-    function carregarLancamentosEmTempoReal() {
-      const listaDiv = document.getElementById('listaLancamentos');
-      const colecaoRef = collection(db, COLECAO_LANCAMENTOS);
-      const q = query(colecaoRef, orderBy("data_lancamento", "desc"));
+    try {
+      await addDoc(colecao, { nome, endereco });
+      await carregarMercados();
+      limparCampos();
+      alert('Supermercado cadastrado com sucesso!');
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      alert("Erro ao salvar no Firebase.");
+    }
+  }
 
-      onSnapshot(q, (querySnapshot) => {
-        let htmlTabela = '<table><thead><tr><th>Produto</th><th>Grupo</th><th>Quantidade</th><th>Data do Lançamento</th></tr></thead><tbody>';
+  function atualizarLista() {
+    const select = document.getElementById('selectMercado');
+    const ul = document.getElementById('listaMercados');
+    select.innerHTML = '';
+    ul.innerHTML = '';
 
-        if (querySnapshot.empty) {
-          listaDiv.innerHTML = '<p>Nenhum lançamento de estoque registrado ainda.</p>';
-          return;
-        }
+    mercados.forEach((m, i) => {
+      const option = document.createElement('option');
+      option.value = i;
+      option.text = `${m.nome} — ${m.endereco}`;
+      select.appendChild(option);
 
-        querySnapshot.forEach((doc) => {
-          const item = doc.data();
-          const data = item.data_lancamento ?
-                       new Date(item.data_lancamento.toDate()).toLocaleString('pt-BR') :
-                       'Aguardando...';
+      const tipo = m.endereco.split(',')[0].split(' ')[0];
+      const rua = m.endereco.split(',')[0].split(' ').slice(1).join(' ');
+      const bairro = m.endereco.split(',')[1].replace(' BAIRRO ', '').trim();
 
-          htmlTabela += `
-            <tr>
-              <td>${item.produto}</td>
-              <td>${item.grupo || '—'}</td>
-              <td>${item.quantidade}</td>
-              <td>${data}</td>
-            </tr>
-          `;
-        });
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <input type="text" value="${m.nome}" onchange="editarCampo(${i}, 'nome', this.value)" style="width:150px">
+        <input type="text" value="${tipo}" onchange="editarCampo(${i}, 'tipo', this.value)" style="width:80px">
+        <input type="text" value="${rua}" onchange="editarCampo(${i}, 'rua', this.value)" style="width:120px">
+        <input type="text" value="${bairro}" onchange="editarCampo(${i}, 'bairro', this.value)" style="width:100px">
+        <button onclick="excluirMercado(${i})">🗑️</button>
+      `;
+      ul.appendChild(li);
+    });
+  }
 
-        htmlTabela += '</tbody></table>';
-        listaDiv.innerHTML = htmlTabela;
-      }, (error) => {
-        console.error("Erro ao receber atualização em tempo real: ", error);
-        listaDiv.innerHTML = '<p style="color: red;">Erro ao carregar lançamentos. Verifique as Regras de Segurança do Firestore.</p>';
+  async function editarCampo(index, campo, valor) {
+    valor = valor.toUpperCase();
+    const mercado = mercados[index];
+    const partes = mercado.endereco.split(',')[0].split(' ');
+    let tipo = partes[0];
+    let rua = partes.slice(1).join(' ');
+    let bairro = mercado.endereco.split(',')[1].replace(' BAIRRO ', '').trim();
+
+    if (campo === 'nome') {
+      mercado.nome = valor;
+    } else if (campo === 'tipo') {
+      tipo = valor;
+    } else if (campo === 'rua') {
+      rua = valor;
+    } else if (campo === 'bairro') {
+      bairro = valor;
+    }
+
+    mercado.endereco = `${tipo} ${rua}, BAIRRO ${bairro}`;
+
+    try {
+      await updateDoc(doc(db, "supermercado", mercado.id), {
+        nome: mercado.nome,
+        endereco: mercado.endereco
       });
+      await carregarMercados();
+    } catch (error) {
+      console.error("Erro ao editar:", error);
+      alert("Erro ao editar no Firebase.");
     }
-  </script>
-</body>
-</html>
+  }
+
+  async function excluirMercado(index) {
+    if (confirm('Deseja excluir este supermercado?')) {
+      try {
+        await deleteDoc(doc(db, "supermercado", mercados[index].id));
+        await carregarMercados();
+        limparCampos();
+      } catch (error) {
+        console.error("Erro ao excluir:", error);
+        alert("Erro ao excluir no Firebase.");
+      }
+    }
+  }
+
+  function limparCampos() {
+    document.getElementById('nomeMercado').value = '';
+    document.getElementById('tipoLogradouro').value = '';
+    document.getElementById('ruaMercado').value = '';
+    document.getElementById('bairroMercado').value = '';
+    document.getElementById('btnCadastrar').textContent = 'Cadastrar';
+  }
+
+  carregarMercados();
+</script>
