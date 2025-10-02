@@ -43,7 +43,7 @@
             <label for="novoProdutoNome">Nome do Produto:</label><br>
             <input type="text" id="novoProdutoNome" required><br>
             <button type="submit">Adicionar ao Catálogo</button>
-            <p style="font-size: 0.9em; color: #666;">Isso adiciona o produto à lista de opções abaixo.</p>
+            <p style="font-size: 0.9em; color: #666;">O nome adicionado aparecerá na lista de seleção abaixo.</p>
         </form>
     </div>
 
@@ -82,6 +82,7 @@
 
         // 1. CONFIGURAÇÃO DO SEU PROJETO FIREBASE
         const firebaseConfig = {
+            // VERIFIQUE SE SUAS CREDENCIAIS ESTÃO CORRETAS AQUI
             apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
             authDomain: "supermercado2-2170d.firebaseapp.com",
             projectId: "supermercado2-2170d",
@@ -96,7 +97,7 @@
         
         let isLancamentosListenerActive = false; 
         
-        // NOVOS NOMES DE COLEÇÕES
+        // Nomes das coleções no Firestore
         const COLECAO_CATALOGO = "produtos_catalogo"; 
         const COLECAO_LANCAMENTOS = "lancamentos_estoque"; 
 
@@ -124,7 +125,7 @@
 
             } catch (error) {
                 console.error("Erro ao adicionar produto ao catálogo: ", error);
-                alert("FALHA ao salvar o catálogo.");
+                alert("FALHA ao salvar o catálogo. Verifique o Console e Regras de Segurança.");
             }
 
             return false;
@@ -143,7 +144,7 @@
 
             const dadosEstoque = {
                 produto: produto,
-                quantidade: quantidade, // Campo alterado
+                quantidade: quantidade, 
                 data_lancamento: serverTimestamp()
             };
 
@@ -163,7 +164,7 @@
         }
 
 
-        // 4. FUNÇÃO PARA PREENCHER O SELECT DO CATÁLOGO DE PRODUTOS
+        // 4. FUNÇÃO PARA PREENCHER O SELECT DO CATÁLOGO (CHAVE PARA O DROPDOWN)
         function carregarCatalogo() {
             const selectElement = document.getElementById('produtoSelect');
             const colecaoRef = collection(db, COLECAO_CATALOGO);
@@ -210,7 +211,6 @@
             const q = query(colecaoRef, orderBy("data_lancamento", "desc"));
 
             onSnapshot(q, (querySnapshot) => {
-                // Cabeçalhos alterados para Produto e Quantidade
                 let htmlTabela = '<table><thead><tr><th>Produto</th><th>Quantidade</th><th>Data do Lançamento</th></tr></thead><tbody>';
                 
                 if (querySnapshot.empty) {
@@ -228,7 +228,8 @@
                     htmlTabela += `
                         <tr>
                             <td>${item.produto}</td>
-                            <td>${item.quantidade}</td> <td>${data}</td>
+                            <td>${item.quantidade}</td> 
+                            <td>${data}</td>
                         </tr>
                     `;
                 });
@@ -243,7 +244,7 @@
             });
         }
 
-        // 7. INICIALIZAÇÃO
+        // 7. INICIALIZAÇÃO: Carrega o catálogo assim que a página é aberta
         document.addEventListener('DOMContentLoaded', carregarCatalogo);
 
     </script>
