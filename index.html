@@ -51,7 +51,7 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const colecao = collection(db, "supermercado2"); // ← nome da coleção ajustado
+    const colecao = collection(db, "supermercado2");
     let mercados = [];
 
     async function carregarMercados() {
@@ -107,10 +107,10 @@
 
         const li = document.createElement('li');
         li.innerHTML = `
-          <input type="text" value="${m.nome}" onchange="editarCampo(${i}, 'nome', this.value)">
-          <input type="text" value="${tipo}" onchange="editarCampo(${i}, 'tipo', this.value)">
-          <input type="text" value="${rua}" onchange="editarCampo(${i}, 'rua', this.value)">
-          <input type="text" value="${bairro}" onchange="editarCampo(${i}, 'bairro', this.value)">
+          <input type="text" value="${m.nome}" onchange="editarCampo(${i}, 'nome', this.value)" style="width:150px">
+          <input type="text" value="${tipo}" onchange="editarCampo(${i}, 'tipo', this.value)" style="width:80px">
+          <input type="text" value="${rua}" onchange="editarCampo(${i}, 'rua', this.value)" style="width:120px">
+          <input type="text" value="${bairro}" onchange="editarCampo(${i}, 'bairro', this.value)" style="width:100px">
           <button onclick="excluirMercado(${i})">🗑️</button>
         `;
         ul.appendChild(li);
