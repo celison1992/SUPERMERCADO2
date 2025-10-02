@@ -38,12 +38,12 @@
     <h1>Sistema de Contatos</h1>
 
     <div class="secao">
-        <h3>1. Cadastrar Novo Nome (Catálogo)</h3>
+        <h3>1. Cadastrar Novo Nome (Preenche a lista de seleção)</h3>
         <form id="catalogoForm" onsubmit="return salvarNovoNome()">
             <label for="novoNome">Nome para o Catálogo:</label><br>
             <input type="text" id="novoNome" required><br>
             <button type="submit">Adicionar ao Catálogo</button>
-            <p style="font-size: 0.9em; color: #666;">Isso adiciona o nome à lista de opções abaixo.</p>
+            <p style="font-size: 0.9em; color: #666;">O nome adicionado aparecerá na lista de seleção abaixo.</p>
         </form>
     </div>
 
@@ -82,7 +82,6 @@
 
         // 1. CONFIGURAÇÃO DO SEU PROJETO FIREBASE
         const firebaseConfig = {
-            // MANTENHA SUAS CREDENCIAIS AQUI
             apiKey: "AIzaSyAHb0R-Q2ycvrmSb3TBv01ttIWd7pMOaFE",
             authDomain: "supermercado2-2170d.firebaseapp.com",
             projectId: "supermercado2-2170d",
@@ -97,12 +96,12 @@
         
         let isContatosListenerActive = false; 
         
-        // NOVOS NOMES DE COLEÇÕES
+        // Nomes das coleções no Firestore
         const COLECAO_CATALOGO = "usuarios_catalogo"; 
         const COLECAO_CONTATOS = "contatos_salvos"; 
 
 
-        // 2. FUNÇÃO PARA CADASTRAR UM NOVO NOME NO CATÁLOGO
+        // 2. FUNÇÃO PARA CADASTRAR UM NOVO NOME (Catalogo)
         window.salvarNovoNome = async function() {
             const nomeUsuario = document.getElementById("novoNome").value.trim();
 
@@ -117,7 +116,6 @@
             };
 
             try {
-                // Salva na coleção 'usuarios_catalogo'
                 await addDoc(collection(db, COLECAO_CATALOGO), dadosCatalogo);
                 
                 alert(`Nome "${nomeUsuario}" adicionado ao catálogo!`);
@@ -125,14 +123,14 @@
 
             } catch (error) {
                 console.error("Erro ao adicionar nome ao catálogo: ", error);
-                alert("FALHA ao salvar o catálogo.");
+                alert("FALHA ao salvar o catálogo. Verifique o console.");
             }
 
             return false;
         }
 
 
-        // 3. FUNÇÃO PARA SALVAR O CONTATO (USA O SELECT DO NOME E O EMAIL)
+        // 3. FUNÇÃO PARA SALVAR O CONTATO (Usa Select e Email)
         window.salvarContato = async function() {
             const nome = document.getElementById("nomeSelect").value.trim(); 
             const email = document.getElementById("email").value.trim();
@@ -149,7 +147,6 @@
             };
 
             try {
-                // Salva na coleção 'contatos_salvos'
                 await addDoc(collection(db, COLECAO_CONTATOS), dadosContato);
                 
                 alert(`SUCESSO! Contato de '${nome}' (${email}) salvo.`);
@@ -164,15 +161,13 @@
         }
 
 
-        // 4. FUNÇÃO PARA PREENCHER O SELECT DO CATÁLOGO DE NOMES
+        // 4. FUNÇÃO PARA PREENCHER O SELECT (onSnapshot no Catálogo)
         function carregarCatalogo() {
             const selectElement = document.getElementById('nomeSelect');
             const colecaoRef = collection(db, COLECAO_CATALOGO);
             
-            // Ordena alfabeticamente
             const q = query(colecaoRef, orderBy("nome", "asc"));
 
-            // Ouve as mudanças no catálogo em tempo real
             onSnapshot(q, (querySnapshot) => {
                 let optionsHtml = '<option value="" disabled selected>Selecione um Nome</option>';
                 
@@ -194,7 +189,7 @@
         }
         
         
-        // 5. FUNÇÃO PARA MOSTRAR A LISTA DE CONTATOS SALVOS
+        // 5. FUNÇÃO PARA MOSTRAR A LISTA (Ativa o ouvinte principal)
         window.mostrarLista = function() {
             document.getElementById('listaContatosContainer').style.display = 'block';
 
@@ -210,7 +205,6 @@
             const listaDiv = document.getElementById('listaContatos');
             const colecaoRef = collection(db, COLECAO_CONTATOS);
             
-            // Ordena pelo cadastro mais recente
             const q = query(colecaoRef, orderBy("data_cadastro", "desc"));
 
             onSnapshot(q, (querySnapshot) => {
@@ -247,7 +241,7 @@
             });
         }
 
-        // 7. INICIALIZAÇÃO: Chama o carregamento do catálogo assim que a página carrega
+        // 7. INICIALIZAÇÃO
         document.addEventListener('DOMContentLoaded', carregarCatalogo);
 
     </script>
